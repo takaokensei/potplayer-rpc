@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, shell, nativeImage, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const RPC = require('discord-rpc');
@@ -7,6 +7,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const logger = require('./utils/logger');
 const config = require('./config');
+const { autoUpdater } = require('electron-updater');
 
 const execAsync = util.promisify(exec);
 const clientId = '1376009895677001798';
@@ -43,6 +44,9 @@ if (!gotTheLock) {
 
         // Setup IPC handlers
         setupIPC();
+
+        // Initialize auto-updater
+        initAutoUpdater();
 
         createTray();
         createDashboardWindow(); // Prepare window but keep hidden
@@ -224,6 +228,71 @@ function setupIPC() {
         };
     });
 }
+
+function initAutoUpdater() {
+    // Configure updater
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    // Check for updates on startup (after 3 seconds delay)
+    setTimeout(() => {
+        autoUpdater.checkForUpdates();
+    }, 3000);
+
+    // Update available
+    autoUpdater.on('update-available', (info) => {
+        logger.info('Update available', { version: info.version });
+
+        dialog.showMessageBox({
+            type: 'info',
+            title: 'Atualização Disponível',
+            message: `Nova versão ${info.version} disponível!`,
+            detail: 'Deseja baixar agora?',
+            buttons: ['Sim', 'Mais Tarde'],
+            defaultId: 0,
+            cancelId: 1
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.downloadUpdate();
+            }
+        });
+    });
+
+    // Update not available
+    autoUpdater.on('update-not-available', () => {
+        logger.info('App is up to date');
+    });
+
+    // Download progress
+    autoUpdater.on('download-progress', (progress) => {
+        logger.info('Download progress', { percent: progress.percent.toFixed(2) });
+    });
+
+    // Update downloaded
+    autoUpdater.on('update-downloaded', (info) => {
+        logger.info('Update downloaded', { version: info.version });
+
+        dialog.showMessageBox({
+            type: 'info',
+            title: 'Atualização Pronta',
+            message: 'A atualização foi baixada.',
+            detail: 'O aplicativo será reiniciado para instalar.',
+            buttons: ['Reiniciar Agora', 'Reiniciar Depois'],
+            defaultId: 0,
+            cancelId: 1
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall(false, true);
+            }
+        });
+    });
+
+    // Error
+    autoUpdater.on('error', (err) => {
+        logger.error('Auto-updater error', { error: err.message });
+    });
+}
+
 
 // --- DISCORD & POTPLAYER LOGIC ---
 
