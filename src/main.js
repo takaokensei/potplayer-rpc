@@ -6,6 +6,7 @@ const axios = require('axios');
 const { exec } = require('child_process');
 const util = require('util');
 const logger = require('./utils/logger');
+const config = require('./config');
 
 const execAsync = util.promisify(exec);
 const clientId = '1376009895677001798';
@@ -16,6 +17,7 @@ const startupDir = path.resolve(process.env.APPDATA, 'Microsoft/Windows/Start Me
 // --- GLOBAL STATE ---
 let tray = null;
 let dashboardWindow = null;
+let settingsWindow = null;
 let rpcClient = null;
 let isConnectedToDiscord = false;
 let lastFileFound = 'IDLE';
@@ -39,12 +41,16 @@ if (!gotTheLock) {
         // Hide dock icon on macOS/Linux (not relevant for Windows but good practice)
         if (process.platform === 'darwin') app.dock.hide();
 
+        // Setup IPC handlers
+        setupIPC();
+
         createTray();
         createDashboardWindow(); // Prepare window but keep hidden
         initDiscord();
 
         // Start Polling Loop
-        checkInterval = setInterval(updateActivity, 5000);
+        const pollInterval = config.get('pollInterval');
+        checkInterval = setInterval(updateActivity, pollInterval);
     });
 }
 
@@ -105,6 +111,10 @@ function updateTrayMenu() {
             label: '📊  Painel Visual',
             click: () => toggleDashboard()
         },
+        {
+            label: '⚙️  Configurações',
+            click: () => openSettings()
+        },
         { type: 'separator' },
         {
             label: '🚀  Iniciar com Windows',
@@ -151,6 +161,69 @@ function toggleStartup() {
     setTimeout(updateTrayMenu, 100);
 }
 
+function openSettings() {
+    if (settingsWindow) {
+        settingsWindow.focus();
+        return;
+    }
+
+    settingsWindow = new BrowserWindow({
+        width: 550,
+        height: 500,
+        show: true,
+        frame: false,
+        resizable: false,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false
+        },
+        backgroundColor: '#1a1b26',
+        icon: path.join(__dirname, '../tray.ico')
+    });
+
+    settingsWindow.loadFile(path.join(__dirname, 'settings/index.html'));
+
+    settingsWindow.on('closed', () => {
+        settingsWindow = null;
+    });
+}
+
+function setupIPC() {
+    // Get current settings
+    ipcMain.handle('get-settings', () => {
+        return {
+            pollInterval: config.get('pollInterval'),
+            theme: config.get('theme'),
+            enableNotifications: config.get('enableNotifications')
+        };
+    });
+
+    // Save settings
+    ipcMain.handle('save-settings', (event, settings) => {
+        config.set('pollInterval', settings.pollInterval);
+        config.set('theme', settings.theme);
+        config.set('enableNotifications', settings.enableNotifications);
+
+        // Restart polling with new interval
+        if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = setInterval(updateActivity, settings.pollInterval);
+        }
+
+        logger.info('Settings updated', settings);
+    });
+
+    // Reset to defaults
+    ipcMain.handle('reset-settings', () => {
+        config.clear();
+        return {
+            pollInterval: config.get('pollInterval'),
+            theme: config.get('theme'),
+            enableNotifications: config.get('enableNotifications')
+        };
+    });
+}
 
 // --- DISCORD & POTPLAYER LOGIC ---
 

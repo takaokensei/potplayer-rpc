@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Configurações</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <style>
+        body {
+            background-color: #1a1b26;
+            color: #c0caf5;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            overflow-y: auto;
+            user-select: none;
+            -webkit-app-region: drag;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #7aa2f7;
+            margin-bottom: 30px;
+        }
+
+        .setting-group {
+            background: #24283b;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #414868;
+        }
+
+        .setting-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #a9b1d6;
+            margin-bottom: 8px;
+        }
+
+        .setting-desc {
+            font-size: 12px;
+            color: #565f89;
+            margin-bottom: 12px;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            background: #16161e;
+            color: #c0caf5;
+            border: 1px solid #414868;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            -webkit-app-region: no-drag;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #7aa2f7;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            -webkit-app-region: no-drag;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-app-region: no-drag;
+        }
+
+        .btn-primary {
+            background: #7aa2f7;
+            color: #1a1b26;
+        }
+
+        .btn-primary:hover {
+            background: #89b4fa;
+        }
+
+        .btn-secondary {
+            background: #414868;
+            color: #c0caf5;
+        }
+
+        .btn-secondary:hover {
+            background: #565f89;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            color: #565f89;
+            font-size: 18px;
+            -webkit-app-region: no-drag;
+        }
+
+        .close-btn:hover {
+            color: #f7768e;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="close-btn" onclick="window.close()">✕</div>
+
+    <div class="container">
+        <h1>⚙️ Configurações</h1>
+
+        <div class="setting-group">
+            <label class="setting-label">Intervalo de Atualização</label>
+            <p class="setting-desc">Frequência de verificação do PotPlayer (em milissegundos)</p>
+            <input type="number" id="pollInterval" min="1000" max="30000" step="1000">
+        </div>
+
+        <div class="setting-group">
+            <label class="setting-label">Tema</label>
+            <p class="setting-desc">Esquema de cores da interface</p>
+            <select id="theme">
+                <option value="tokyo-night">Tokyo Night</option>
+                <option value="dracula">Dracula</option>
+                <option value="nord">Nord</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label class="setting-label">Notificações</label>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="enableNotifications">
+                <span class="setting-desc" style="margin: 0;">Mostrar notificações ao iniciar reprodução</span>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-secondary" onclick="resetDefaults()">Restaurar Padrões</button>
+            <button class="btn-primary" onclick="saveSettings()">Salvar</button>
+        </div>
+    </div>
+
+    <script src="settings-renderer.js"></script>
+</body>
+
+</html>
