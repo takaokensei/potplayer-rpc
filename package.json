@@ -1,0 +1,28 @@
+{
+  "name": "potplayer-rpc",
+  "version": "1.0.0",
+  "description": "PotPlayer Discord RPC Integration - Mostra o que você está assistindo no Discord",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-packager . \"PotPlayer RPC\" --platform=win32 --arch=x64 --icon=tray.ico --out=dist --overwrite"
+  },
+  "keywords": [
+    "potplayer",
+    "discord",
+    "rpc",
+    "rich-presence"
+  ],
+  "author": "Cauã Vitor",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "discord-rpc": "^4.0.1",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-packager": "^17.1.2"
+  }
+}

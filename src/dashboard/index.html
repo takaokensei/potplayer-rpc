@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PotPlayer Dashboard</title>
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <style>
+        body {
+            background-color: #1a1b26; /* Tokyo Night Dark */
+            color: #c0caf5;
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            border: 1px solid #414868;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-app-region: drag; /* Draggable window */
+        }
+        .container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .cover-box {
+            width: 80px;
+            height: 110px;
+            background-color: #24283b;
+            border-radius: 8px;
+            overflow: hidden;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            position: relative;
+        }
+        .cover-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+        .cover-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #414868;
+            font-size: 24px;
+        }
+        .info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+        .status {
+            font-size: 11px;
+            font-weight: bold;
+            color: #7aa2f7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 8px;
+        }
+        .time {
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            color: #565f89;
+            margin-bottom: 8px;
+        }
+        .progress-bg {
+            height: 6px;
+            background-color: #2a2e3f;
+            border-radius: 3px;
+            overflow: hidden;
+            width: 100%;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #7aa2f7, #bb9af7);
+            transition: width 0.5s ease;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            color: #565f89;
+            -webkit-app-region: no-drag;
+            font-size: 16px;
+        }
+        .close-btn:hover { color: #f7768e; }
+    </style>
+</head>
+<body>
+    <div class="close-btn" onclick="window.close()">✕</div>
+    
+    <div class="container">
+        <div class="cover-box">
+            <img id="cover" class="cover-img" src="">
+            <div id="placeholder" class="cover-placeholder">P</div>
+        </div>
+        
+        <div class="info">
+            <div id="status" class="status">AGUARDANDO...</div>
+            <div id="title" class="title">Carregando...</div>
+            <div id="time" class="time">--:-- / --:--</div>
+            
+            <div class="progress-bg">
+                <div id="progress" class="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html>
