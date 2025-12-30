@@ -1,6 +1,8 @@
 const { exec } = require('child_process');
 const util = require('util');
 const path = require('path');
+const fs = require('fs').promises;
+const os = require('os');
 const ffprobe = require('ffprobe-static');
 const logger = require('./logger');
 
@@ -8,35 +10,52 @@ const execAsync = util.promisify(exec);
 
 /**
  * Get video file path from PotPlayer process command line
+ * Uses a temporary PowerShell script to avoid CLI escaping issues and handle Unicode
  */
 async function getPotPlayerFile() {
+    const tempScriptPath = path.join(os.tmpdir(), `potplayer_cmd_${Date.now()}.ps1`);
+
     try {
-        // Use WMIC to get Command Line
-        const { stdout } = await execAsync(
-            'wmic process where "name=\'PotPlayerMini64.exe\'" get commandline',
-            { timeout: 2000 }
-        );
+        // PowerShell script to get command line and encode as Base64 to avoid console encoding issues
+        const psScript = `
+            $proc = Get-CimInstance Win32_Process -Filter "Name = 'PotPlayerMini64.exe' OR Name = 'PotPlayer64.exe'" | Select-Object -ExpandProperty CommandLine -ErrorAction SilentlyContinue
+            if ($proc) {
+                $Bytes = [System.Text.Encoding]::UTF8.GetBytes($proc)
+                [Convert]::ToBase64String($Bytes)
+            }
+        `;
 
-        // Output format is usually: CommandLine \n "C:\Path\To\PotPlayer.exe" "C:\Path\To\Video.mp4"
-        const lines = stdout.trim().split('\n');
-        if (lines.length < 2) return null;
+        // Write script to temp file
+        await fs.writeFile(tempScriptPath, psScript, 'utf8');
 
-        const commandLine = lines[1].trim();
+        // Execute script
+        const { stdout } = await execAsync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${tempScriptPath}"`, {
+            timeout: 2000,
+            encoding: 'utf8'
+        });
+
+        // Clean up immediately
+        await fs.unlink(tempScriptPath).catch(() => { });
+
+        const base64Output = stdout.trim();
+        if (!base64Output) return null;
+
+        // Decode Base64
+        const commandLine = Buffer.from(base64Output, 'base64').toString('utf8');
+        logger.info('Decoded CommandLine:', { commandLine });
 
         // Extract paths quoted in ""
         const matches = commandLine.match(/"([^"]+)"/g);
 
         if (matches && matches.length >= 2) {
-            // Usually the second argument is the file path (first is exe)
-            // But we should filter for video extensions to be sure
-            const videoExtensions = ['.mp4', '.mkv', '.avi', '.flv', '.webm', '.mov', '.wmv'];
+            const videoExtensions = ['.mp4', '.mkv', '.avi', '.flv', '.webm', '.mov', '.wmv', '.m4v'];
 
             for (let match of matches) {
-                // Remove quotes
                 const rawPath = match.replace(/"/g, '');
                 const ext = path.extname(rawPath).toLowerCase();
 
                 if (videoExtensions.includes(ext)) {
+                    logger.info('Found video file:', { rawPath });
                     return rawPath;
                 }
             }
@@ -44,7 +63,9 @@ async function getPotPlayerFile() {
 
         return null;
     } catch (error) {
-        logger.debug('Error getting process command line', { error: error.message });
+        // Ensure cleanup on error
+        await fs.unlink(tempScriptPath).catch(() => { });
+        logger.error('Error getting process command line', { error: error.message });
         return null;
     }
 }
