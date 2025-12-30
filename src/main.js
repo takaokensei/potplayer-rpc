@@ -431,17 +431,10 @@ async function updateActivity() {
     const rawTitle = await getPotPlayerTitle();
 
     if (!rawTitle || rawTitle === 'PotPlayer') {
-        // Idle state
+        // IDLE handling...
         if (lastFileFound !== 'IDLE') {
             lastFileFound = 'IDLE';
-            if (isConnectedToDiscord) {
-                try {
-                    await rpcClient.clearActivity();
-                    logger.debug('Discord RPC cleared (idle)');
-                } catch (error) {
-                    logger.error('Failed to clear Discord activity', { error: error.message });
-                }
-            }
+            if (isConnectedToDiscord) rpcClient.clearActivity().catch(() => { });
             if (dashboardWindow) {
                 dashboardWindow.webContents.send('update-status', {
                     state: 'idle',
@@ -456,91 +449,76 @@ async function updateActivity() {
         return;
     }
 
-    // Parse episode information
+    // Parse Title
     const episodeInfo = parseAnimeEpisode(rawTitle);
-    if (!episodeInfo) {
-        logger.warn('Failed to parse episode', { rawTitle });
-        return;
+
+    // Attempt to get file path and duration
+    let totalSecs = 0;
+    let totalTimeStr = '??:??:??';
+
+    if (episodeInfo) {
+        // Try to get duration from file
+        const filePath = await getPotPlayerFile();
+        if (filePath) {
+            const duration = await getVideoDuration(filePath);
+            if (duration > 0) {
+                totalSecs = duration;
+                totalTimeStr = secondsToTime(duration);
+            }
+        }
     }
 
-    // Extract time information
-    const timeMatch = rawTitle.match(/\[(\d{2}:\d{2}:\d{2})\s*\/\s*(\d{2}:\d{2}:\d{2})\]/);
-    const currentTime = timeMatch ? timeMatch[1] : '00:00:00';
-    const totalTime = timeMatch ? timeMatch[2] : '00:00:00';
-
-    const currentSecs = timeToSeconds(currentTime);
-    const totalSecs = timeToSeconds(totalTime);
-    const progress = totalSecs > 0 ? (currentSecs / totalSecs) * 100 : 0;
-
-    // Only update if file changed
+    // Only update if file changed OR if we just got duration
     if (lastFileFound !== episodeInfo.animeName) {
         lastFileFound = episodeInfo.animeName;
+
         logger.info('Now playing', {
             anime: episodeInfo.animeName,
             episode: episodeInfo.episode,
-            fansub: episodeInfo.fansub
+            duration: totalTimeStr
         });
 
-        // Fetch anime data from Jikan API
         const animeData = await fetchAnimeData(episodeInfo.animeName);
 
-        // Update Discord RPC with episode number AND MAL button
         if (isConnectedToDiscord) {
             try {
                 const discordDetails = episodeInfo.episode
                     ? `${episodeInfo.animeName} - EP ${episodeInfo.episode}`
                     : episodeInfo.animeName;
 
+                const stateText = totalSecs > 0 ? `Duração: ${totalTimeStr}` : '📺 Assistindo anime';
+
                 const activity = {
                     details: discordDetails,
-                    state: '📺 Assistindo anime',
+                    state: stateText,
                     largeImageKey: animeData?.image || 'potplayer_icon',
                     largeImageText: episodeInfo.cleanTitle,
                     instance: false,
                 };
 
-                // Add timestamps for elapsed time in Discord
-                if (currentSecs > 0 && totalSecs > 0) {
-                    const now = Date.now();
-                    activity.startTimestamp = now - (currentSecs * 1000);
-                    activity.endTimestamp = now + ((totalSecs - currentSecs) * 1000);
+                if (animeData?.url) {
+                    activity.buttons = [{ label: '📖 Ver no MyAnimeList', url: animeData.url }];
                 }
 
-                // Add MAL button if we have the URL
-                if (animeData?.url) {
-                    activity.buttons = [
-                        { label: '📖 Ver no MyAnimeList', url: animeData.url }
-                    ];
-                }
+                // Show "XX min left" if we have duration (Discord subtracts startTimestamp from now)
+                // Since we don't know start time, we can't do accurate progress bar.
+                // But we CAN display total duration in state.
 
                 await rpcClient.setActivity(activity);
             } catch (error) {
-                logger.error('Failed to set Discord activity', { error: error.message });
+                logger.error('RPC Error', { error: error.message });
             }
         }
 
-        // Update Dashboard with episode info + MAL URL
         if (dashboardWindow) {
             dashboardWindow.webContents.send('update-status', {
                 state: 'playing',
                 title: episodeInfo.cleanTitle,
-                current: currentTime,
-                total: totalTime,
-                progress: progress,
+                current: '00:00:00', // Unknown current position
+                total: totalTimeStr,
+                progress: 0, // Unknown progress
                 image: animeData?.image || null,
-                malUrl: animeData?.url || null  // Adicionar URL do MAL
-            });
-        }
-    } else {
-        // Just update time/progress (não manda 'image' para não sobrescrever)
-        if (dashboardWindow) {
-            dashboardWindow.webContents.send('update-status', {
-                state: 'playing',
-                title: episodeInfo.cleanTitle,
-                current: currentTime,
-                total: totalTime,
-                progress: progress
-                // NÃO mandar 'image' aqui - deixa a que já está
+                malUrl: animeData?.url || null
             });
         }
     }

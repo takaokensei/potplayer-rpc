@@ -21,6 +21,7 @@
     "discord-rpc": "^4.0.1",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.6.2",
+    "ffprobe-static": "^3.1.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
