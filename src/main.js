@@ -8,6 +8,7 @@ const util = require('util');
 const logger = require('./utils/logger');
 const config = require('./config');
 const { autoUpdater } = require('electron-updater');
+const { parseAnimeEpisode } = require('./utils/episode-parser');
 
 const execAsync = util.promisify(exec);
 const clientId = '1376009895677001798';
@@ -42,20 +43,57 @@ if (!gotTheLock) {
         // Hide dock icon on macOS/Linux (not relevant for Windows but good practice)
         if (process.platform === 'darwin') app.dock.hide();
 
+        // Show splash screen
+        const splash = createSplashScreen();
+
         // Setup IPC handlers
         setupIPC();
 
-        // Initialize auto-updater
-        initAutoUpdater();
-
+        // Initialize components
         createTray();
-        createDashboardWindow(); // Prepare window but keep hidden
-        initDiscord();
+        createDashboardWindow();
 
-        // Start Polling Loop
-        const pollInterval = config.get('pollInterval');
-        checkInterval = setInterval(updateActivity, pollInterval);
+        // Initialize Discord (async)
+        initDiscord().then(() => {
+            // Start polling
+            const pollInterval = config.get('pollInterval');
+            checkInterval = setInterval(updateActivity, pollInterval);
+
+            // Hide splash after init (2s minimum)
+            setTimeout(() => {
+                if (splash && !splash.isDestroyed()) {
+                    splash.close();
+                }
+                initAutoUpdater();
+            }, 2000);
+        }).catch(err => {
+            logger.error('Discord init failed', { error: err.message });
+            setTimeout(() => {
+                if (splash && !splash.isDestroyed()) splash.close();
+            }, 2000);
+        });
     });
+}
+
+// --- SPLASH SCREEN ---
+function createSplashScreen() {
+    const splash = new BrowserWindow({
+        width: 400,
+        height: 300,
+        frame: false,
+        transparent: true,
+        alwaysOnTop: true,
+        skipTaskbar: true,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+        }
+    });
+
+    splash.loadFile(path.join(__dirname, '../splash.html'));
+    splash.center();
+
+    return splash;
 }
 
 // --- DASHBOARD WINDOW ---
@@ -140,18 +178,29 @@ function updateTrayMenu() {
 
 function toggleDashboard() {
     if (dashboardWindow.isVisible()) {
-        dashboardWindow.hide();
+        // Fade out before hiding
+        dashboardWindow.webContents.executeJavaScript(`
+            document.body.style.transition = 'opacity 0.2s';
+            document.body.style.opacity = '0';
+        `).then(() => {
+            setTimeout(() => dashboardWindow.hide(), 200);
+        });
     } else {
-        // Position window near tray? Or center? 
-        // Let's center for now, user requested "wallpaper engine" style so maybe center is better.
-        // Or get tray position:
-        // const trayBounds = tray.getBounds();
-        // dashboardWindow.setPosition(...)
-
-        // Center on primary display
+        // Center and show with fade-in
         dashboardWindow.center();
         dashboardWindow.show();
         dashboardWindow.focus();
+
+        // Fade in
+        dashboardWindow.webContents.executeJavaScript(`
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.3s ease-out';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    document.body.style.opacity = '1';
+                });
+            });
+        `);
     }
 }
 
@@ -378,82 +427,107 @@ async function getPotPlayerTitle() {
 }
 
 async function updateActivity() {
-    // If not connected, try to reconnect occasionally? 
-    if (!isConnectedToDiscord) {
-        // logic to reconnect could go here
-        return;
-    }
+    const rawTitle = await getPotPlayerTitle();
 
-    const windowTitle = await getPotPlayerTitle();
+    // ALWAYS log what we get from PotPlayer
+    logger.info('PotPlayer window title check', { rawTitle, discordConnected: isConnectedToDiscord });
 
-    // Prepare Data for Dashboard
-    let dashboardData = {
-        state: 'idle',
-        title: 'Nenhuma Mídia',
-        current: '--:--:--',
-        total: '--:--:--',
-        progress: 0,
-        image: ''
-    };
-
-    if (!windowTitle || windowTitle === 'PotPlayer') {
+    if (!rawTitle || rawTitle === 'PotPlayer') {
+        // Idle state
         if (lastFileFound !== 'IDLE') {
-            rpcClient.clearActivity().catch(() => { });
             lastFileFound = 'IDLE';
+            if (isConnectedToDiscord) {
+                try {
+                    await rpcClient.clearActivity();
+                    logger.debug('Discord RPC cleared (idle)');
+                } catch (error) {
+                    logger.error('Failed to clear Discord activity', { error: error.message });
+                }
+            }
+            if (dashboardWindow) {
+                dashboardWindow.webContents.send('update-status', {
+                    state: 'idle',
+                    title: 'PotPlayer Fechado',
+                    current: '--:--:--',
+                    total: '--:--:--',
+                    progress: 0,
+                    image: null
+                });
+            }
         }
-        // Send Idle Data to Window
-        if (dashboardWindow) dashboardWindow.webContents.send('update-status', dashboardData);
         return;
     }
 
-    const cleaned = cleanTitle(windowTitle);
-    const timeMatch = windowTitle.match(/\[(\d{2}:\d{2}:\d{2})\s\/\s(\d{2}:\d{2}:\d{2})\]/);
-    let animeData = cleaned ? await fetchAnimeData(cleaned) : null;
-
-    const activity = {
-        details: animeData ? animeData.title : cleaned.substring(0, 128),
-        state: 'Assistindo',
-        largeImageKey: animeData ? animeData.image : 'potplayer_icon',
-        largeImageText: animeData ? animeData.title : 'PotPlayer',
-        instance: false,
-    };
-
-    if (animeData && animeData.url && animeData.url.startsWith('http')) {
-        activity.buttons = [{ label: 'Ver no MyAnimeList', url: animeData.url }];
+    // Parse episode information
+    const episodeInfo = parseAnimeEpisode(rawTitle);
+    if (!episodeInfo) {
+        logger.warn('Failed to parse episode', { rawTitle });
+        return;
     }
 
-    // Process Time
-    let currentStr = '00:00:00';
-    let totalStr = '00:00:00';
-    let progress = 0;
+    // Extract time information
+    const timeMatch = rawTitle.match(/\[(\d{2}:\d{2}:\d{2})\s*\/\s*(\d{2}:\d{2}:\d{2})\]/);
+    const currentTime = timeMatch ? timeMatch[1] : '00:00:00';
+    const totalTime = timeMatch ? timeMatch[2] : '00:00:00';
 
-    if (timeMatch) {
-        const currentSeconds = timeToSeconds(timeMatch[1]);
-        const totalSeconds = timeToSeconds(timeMatch[2]);
-        const now = Date.now();
-        activity.startTimestamp = now - (currentSeconds * 1000);
-        activity.endTimestamp = activity.startTimestamp + (totalSeconds * 1000);
+    const currentSecs = timeToSeconds(currentTime);
+    const totalSecs = timeToSeconds(totalTime);
+    const progress = totalSecs > 0 ? (currentSecs / totalSecs) * 100 : 0;
 
-        currentStr = timeMatch[1];
-        totalStr = timeMatch[2];
-        if (totalSeconds > 0) {
-            progress = (currentSeconds / totalSeconds) * 100;
+    // Only update if file changed
+    if (lastFileFound !== episodeInfo.animeName) {
+        lastFileFound = episodeInfo.animeName;
+        logger.info('Now playing', {
+            anime: episodeInfo.animeName,
+            episode: episodeInfo.episode,
+            fansub: episodeInfo.fansub
+        });
+
+        // Fetch anime data from Jikan API
+        const animeData = await fetchAnimeData(episodeInfo.animeName);
+
+        // Update Discord RPC with episode number
+        if (isConnectedToDiscord) {
+            try {
+                const discordDetails = episodeInfo.episode
+                    ? `${episodeInfo.animeName} - EP ${episodeInfo.episode}`
+                    : episodeInfo.animeName;
+
+                await rpcClient.setActivity({
+                    details: discordDetails,
+                    state: '📺 Assistindo anime',
+                    largeImageKey: animeData?.image || 'potplayer_icon',
+                    largeImageText: episodeInfo.cleanTitle,
+                    instance: false,
+                });
+                logger.debug('Discord RPC updated', { title: discordDetails });
+            } catch (error) {
+                logger.error('Failed to set Discord activity', { error: error.message });
+            }
+        }
+
+        // Update Dashboard with episode info
+        if (dashboardWindow) {
+            dashboardWindow.webContents.send('update-status', {
+                state: 'playing',
+                title: episodeInfo.cleanTitle,
+                current: currentTime,
+                total: totalTime,
+                progress: progress,
+                image: animeData?.image || null
+            });
+        }
+    } else {
+        // Just update time/progress (não manda 'image' para não sobrescrever)
+        if (dashboardWindow) {
+            dashboardWindow.webContents.send('update-status', {
+                state: 'playing',
+                title: episodeInfo.cleanTitle,
+                current: currentTime,
+                total: totalTime,
+                progress: progress
+                // NÃO mandar 'image' aqui - deixa a que já está
+            });
         }
     }
-
-    // Send RPC
-    rpcClient.setActivity(activity).catch(() => { });
-
-    // Update Dashboard
-    dashboardData = {
-        state: 'playing',
-        title: animeData ? animeData.title : cleaned,
-        current: currentStr,
-        total: totalStr,
-        progress: progress.toFixed(1),
-        image: animeData ? animeData.image : ''
-    };
-
-    if (dashboardWindow) dashboardWindow.webContents.send('update-status', dashboardData);
-    lastFileFound = dashboardData.title;
 }

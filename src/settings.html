@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        body {
+            background-color: #1a1b26;
+            color: #c0caf5;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 20px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #7aa2f7;
+            margin-bottom: 30px;
+            animation: slideIn 0.4s ease-out 0.1s backwards;
+        }
+
+        .setting-group {
+            background: #24283b;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #414868;
+            animation: slideIn 0.4s ease-out backwards;
+            transition: all 0.2s ease;
+        }
+
+        .setting-group:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+
+        .setting-group:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        .setting-group:nth-child(4) {
+            animation-delay: 0.25s;
+        }
+
+        .setting-group:hover {
+            border-color: #565f89;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .setting-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #a9b1d6;
+            margin-bottom: 8px;
+        }
+
+        .setting-desc {
+            font-size: 12px;
+            color: #565f89;
+            margin-bottom: 12px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            background: #16161e;
+            color: #c0caf5;
+            border: 1px solid #414868;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #7aa2f7;
+            box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            animation: fadeIn 0.5s ease-out 0.3s backwards;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #7aa2f7;
+            color: #1a1b26;
+        }
+
+        .btn-primary:hover {
+            background: #89b4fa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(122, 162, 247, 0.3);
+        }
+
+        .btn-secondary {
+            background: #414868;
+            color: #c0caf5;
+        }
+
+        .btn-secondary:hover {
+            background: #565f89;
+            transform: translateY(-2px);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            color: #565f89;
+            font-size: 18px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            color: #f7768e;
+            background: rgba(247, 118, 142, 0.1);
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="close-btn" id="closeBtn">✕</div>
+
+    <h1>⚙️ Configurações</h1>
+
+    <div class="setting-group">
+        <label class="setting-label">Intervalo de Atualização</label>
+        <p class="setting-desc">Frequência de verificação do PotPlayer (em milissegundos)</p>
+        <input type="number" id="pollInterval" min="1000" max="30000" step="1000" value="5000">
+    </div>
+
+    <div class="button-group">
+        <button class="btn-secondary" id="resetBtn">Restaurar Padrões</button>
+        <button class="btn-primary" id="saveBtn">Salvar</button>
+    </div>
+
+    <script type="module">
+        const { appWindow } = window.__TAURI__.window;
+        const { invoke } = window.__TAURI__.core;
+        const Store = window.__TAURI__.store;
+
+        const pollInput = document.getElementById('pollInterval');
+        let store;
+
+        // Initialize store
+        async function init() {
+            store = await Store.load('.settings.dat');
+            const interval = await store.get('pollInterval') || 5000;
+            pollInput.value = interval;
+        }
+
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            appWindow.hide();
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            const interval = parseInt(pollInput.value);
+            await store.set('pollInterval', interval);
+            await store.save();
+            await invoke('set_poll_interval', { interval });
+            appWindow.hide();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', async () => {
+            pollInput.value = 5000;
+            await store.set('pollInterval', 5000);
+            await store.save();
+        });
+
+        init();
+    </script>
+</body>
+
+</html>

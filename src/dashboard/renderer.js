@@ -4,30 +4,46 @@ const elTime = document.getElementById('time');
 const elProgress = document.getElementById('progress');
 const elCover = document.getElementById('cover');
 const elPlaceholder = document.getElementById('placeholder');
+const elCoverBox = document.getElementById('coverBox');
 
 window.electronAPI.onUpdateStatus((data) => {
     if (data.state === 'idle') {
+        // Idle state with smooth transition
         elStatus.innerText = 'OCIOSO';
-        elStatus.style.color = '#565f89';
+        elStatus.classList.add('idle');
         elTitle.innerText = 'PotPlayer Fechado';
-        elTime.innerText = '--:--';
+        elTime.innerText = '--:--:-- / --:--:--';
         elProgress.style.width = '0%';
-        elCover.style.display = 'none';
-        elPlaceholder.style.display = 'flex';
-    } else {
-        elStatus.innerText = 'REPRODUZINDO';
-        elStatus.style.color = '#7aa2f7'; // Tokyo Night Blue
 
-        elTitle.innerText = data.title;
+        // Hide cover smoothly
+        elCover.classList.remove('loaded');
+        elPlaceholder.style.display = 'flex';
+        elCoverBox.classList.remove('loading');
+    } else {
+        // Playing state
+        elStatus.innerText = 'REPRODUZINDO';
+        elStatus.classList.remove('idle');
+
+        elTitle.innerText = data.title || 'Sem título';
         elTime.innerText = `${data.current} / ${data.total}`;
         elProgress.style.width = `${data.progress}%`;
 
+        // Handle cover image (for future anime API)
         if (data.image && data.image.startsWith('http')) {
+            elCoverBox.classList.add('loading');
             elCover.src = data.image;
-            elCover.style.display = 'block';
-            elPlaceholder.style.display = 'none';
+
+            elCover.onload = () => {
+                elCoverBox.classList.remove('loading');
+                elCover.classList.add('loaded');
+                elPlaceholder.style.display = 'none';
+            };
+
+            elCover.onerror = () => {
+                elCoverBox.classList.remove('loading');
+            };
         } else {
-            elCover.style.display = 'none';
+            elCover.classList.remove('loaded');
             elPlaceholder.style.display = 'flex';
         }
     }

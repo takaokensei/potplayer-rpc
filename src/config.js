@@ -19,14 +19,6 @@ const schema = {
     startWithWindows: {
         type: 'boolean',
         default: false
-    },
-    windowPosition: {
-        type: 'object',
-        properties: {
-            x: { type: 'number' },
-            y: { type: 'number' }
-        },
-        default: null
     }
 };
 

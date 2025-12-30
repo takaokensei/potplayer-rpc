@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <title>PotPlayer Dashboard</title>
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
     <style>
         * {
             margin: 0;
@@ -15,7 +14,7 @@
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(-5px);
+                transform: translateY(-10px);
             }
 
             to {
@@ -34,18 +33,6 @@
             }
         }
 
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.7;
-            }
-        }
-
         body {
             background-color: #1a1b26;
             color: #c0caf5;
@@ -53,14 +40,14 @@
             padding: 20px;
             overflow: hidden;
             user-select: none;
-            opacity: 0;
-            animation: fadeIn 0.3s ease-out 0.1s forwards;
+            animation: fadeIn 0.3s ease-out;
         }
 
         .container {
             display: flex;
             align-items: center;
             gap: 15px;
+            animation: fadeIn 0.4s ease-out 0.1s backwards;
         }
 
         .cover-box {
@@ -72,11 +59,6 @@
             flex-shrink: 0;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             position: relative;
-            transition: transform 0.2s ease;
-        }
-
-        .cover-box:hover {
-            transform: scale(1.02);
         }
 
         .cover-box.loading {
@@ -92,11 +74,12 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            opacity: 0;
+            display: none;
             transition: opacity 0.3s ease;
         }
 
         .cover-img.loaded {
+            display: block;
             opacity: 1;
         }
 
@@ -109,7 +92,6 @@
             color: #414868;
             font-size: 32px;
             font-weight: bold;
-            animation: pulse 2s ease-in-out infinite;
         }
 
         .info {
@@ -127,7 +109,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 5px;
-            transition: all 0.3s ease;
+            transition: color 0.3s ease;
         }
 
         .status.idle {
@@ -142,7 +124,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             margin-bottom: 8px;
-            transition: transform 0.15s ease;
+            transition: transform 0.2s ease;
         }
 
         .title:hover {
@@ -183,7 +165,6 @@
             transition: all 0.2s ease;
             padding: 4px 8px;
             border-radius: 4px;
-            z-index: 10;
         }
 
         .close-btn:hover {
@@ -195,7 +176,7 @@
 </head>
 
 <body>
-    <div class="close-btn" onclick="window.close()">✕</div>
+    <div class="close-btn" id="closeBtn">✕</div>
 
     <div class="container">
         <div class="cover-box" id="coverBox">
@@ -205,7 +186,7 @@
 
         <div class="info">
             <div id="status" class="status idle">CARREGANDO...</div>
-            <div id="title" class="title">Aguardando PotPlayer...</div>
+            <div id="title" class="title">Inicializando...</div>
             <div id="time" class="time">--:--:-- / --:--:--</div>
 
             <div class="progress-bg">
@@ -214,7 +195,69 @@
         </div>
     </div>
 
-    <script src="renderer.js"></script>
+    <script type="module">
+        const { appWindow } = window.__TAURI__.window;
+        const { listen } = window.__TAURI__.event;
+
+        const elements = {
+            status: document.getElementById('status'),
+            title: document.getElementById('title'),
+            time: document.getElementById('time'),
+            progress: document.getElementById('progress'),
+            cover: document.getElementById('cover'),
+            placeholder: document.getElementById('placeholder'),
+            coverBox: document.getElementById('coverBox')
+        };
+
+        // Close button
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            appWindow.hide();
+        });
+
+        // Listen for video updates
+        await listen('video-update', (event) => {
+            const data = event.payload;
+            updateUI(data);
+        });
+
+        await listen('video-clear', () => {
+            setIdle();
+        });
+
+        function updateUI(data) {
+            elements.status.textContent = 'REPRODUZINDO';
+            elements.status.classList.remove('idle');
+
+            elements.title.textContent = data.title || 'Sem título';
+            elements.time.textContent = `${data.current_time} / ${data.total_time}`;
+            elements.progress.style.width = `${data.progress}%`;
+
+            // Load cover if available (for future anime API integration)
+            if (data.cover_url) {
+                elements.coverBox.classList.add('loading');
+                elements.cover.src = data.cover_url;
+                elements.cover.onload = () => {
+                    elements.cover.classList.add('loaded');
+                    elements.placeholder.style.display = 'none';
+                    elements.coverBox.classList.remove('loading');
+                };
+            }
+        }
+
+        function setIdle() {
+            elements.status.textContent = 'OCIOSO';
+            elements.status.classList.add('idle');
+            elements.title.textContent = 'PotPlayer Fechado';
+            elements.time.textContent = '--:--:-- / --:--:--';
+            elements.progress.style.width = '0%';
+            elements.cover.classList.remove('loaded');
+            elements.cover.src = '';
+            elements.placeholder.style.display = 'flex';
+        }
+
+        // Initial state
+        setIdle();
+    </script>
 </body>
 
 </html>

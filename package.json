@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "electron-packager . \"PotPlayer RPC\" --platform=win32 --arch=x64 --icon=tray.ico --out=dist --overwrite"
+    "build": "electron-packager . \"PotPlayer RPC\" --platform=win32 --arch=x64 --icon=tray.ico --out=dist --overwrite --asar"
   },
   "keywords": [
     "potplayer",
