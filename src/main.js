@@ -9,7 +9,8 @@ const logger = require('./utils/logger');
 const config = require('./config');
 const { autoUpdater } = require('electron-updater');
 const { parseAnimeEpisode } = require('./utils/episode-parser');
-const { getPotPlayerData } = require('./utils/potplayer-api');
+const { getPotPlayerData, secondsToTime } = require('./utils/potplayer-api');
+const { getPotPlayerFile, getVideoDuration } = require('./utils/file-info');
 
 const execAsync = util.promisify(exec);
 const clientId = '1376009895677001798';
