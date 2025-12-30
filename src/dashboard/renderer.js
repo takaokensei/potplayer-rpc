@@ -6,6 +6,15 @@ const elCover = document.getElementById('cover');
 const elPlaceholder = document.getElementById('placeholder');
 const elCoverBox = document.getElementById('coverBox');
 
+let currentMalUrl = null;
+
+// Click handler for cover image
+elCoverBox.addEventListener('click', () => {
+    if (currentMalUrl) {
+        require('electron').shell.openExternal(currentMalUrl);
+    }
+});
+
 window.electronAPI.onUpdateStatus((data) => {
     if (data.state === 'idle') {
         // Idle state with smooth transition
@@ -18,7 +27,8 @@ window.electronAPI.onUpdateStatus((data) => {
         // Hide cover smoothly
         elCover.classList.remove('loaded');
         elPlaceholder.style.display = 'flex';
-        elCoverBox.classList.remove('loading');
+        elCoverBox.classList.remove('loading', 'clickable');
+        currentMalUrl = null;
     } else {
         // Playing state
         elStatus.innerText = 'REPRODUZINDO';
@@ -42,6 +52,13 @@ window.electronAPI.onUpdateStatus((data) => {
             elCover.onerror = () => {
                 elCoverBox.classList.remove('loading');
             };
+        }
+
+        // Store MAL URL and make clickable
+        if (data.malUrl) {
+            currentMalUrl = data.malUrl;
+            elCoverBox.classList.add('clickable');
+            elCoverBox.title = 'Clique para ver no MyAnimeList';
         }
         // Se não veio imagem, MANTÉM a que já está carregada
     }

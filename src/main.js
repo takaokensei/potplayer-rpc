@@ -498,6 +498,13 @@ async function updateActivity() {
                     instance: false,
                 };
 
+                // Add timestamps for elapsed time in Discord
+                if (currentSecs > 0 && totalSecs > 0) {
+                    const now = Date.now();
+                    activity.startTimestamp = now - (currentSecs * 1000);
+                    activity.endTimestamp = now + ((totalSecs - currentSecs) * 1000);
+                }
+
                 // Add MAL button if we have the URL
                 if (animeData?.url) {
                     activity.buttons = [
