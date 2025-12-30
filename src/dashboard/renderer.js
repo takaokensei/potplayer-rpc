@@ -28,7 +28,7 @@ window.electronAPI.onUpdateStatus((data) => {
         elTime.innerText = `${data.current} / ${data.total}`;
         elProgress.style.width = `${data.progress}%`;
 
-        // Handle cover image (for future anime API)
+        // Handle cover image - SÓ atualiza se vier nova imagem
         if (data.image && data.image.startsWith('http')) {
             elCoverBox.classList.add('loading');
             elCover.src = data.image;
@@ -42,9 +42,7 @@ window.electronAPI.onUpdateStatus((data) => {
             elCover.onerror = () => {
                 elCoverBox.classList.remove('loading');
             };
-        } else {
-            elCover.classList.remove('loaded');
-            elPlaceholder.style.display = 'flex';
         }
+        // Se não veio imagem, MANTÉM a que já está carregada
     }
 });

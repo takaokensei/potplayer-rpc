@@ -429,9 +429,6 @@ async function getPotPlayerTitle() {
 async function updateActivity() {
     const rawTitle = await getPotPlayerTitle();
 
-    // ALWAYS log what we get from PotPlayer
-    logger.info('PotPlayer window title check', { rawTitle, discordConnected: isConnectedToDiscord });
-
     if (!rawTitle || rawTitle === 'PotPlayer') {
         // Idle state
         if (lastFileFound !== 'IDLE') {
@@ -486,27 +483,35 @@ async function updateActivity() {
         // Fetch anime data from Jikan API
         const animeData = await fetchAnimeData(episodeInfo.animeName);
 
-        // Update Discord RPC with episode number
+        // Update Discord RPC with episode number AND MAL button
         if (isConnectedToDiscord) {
             try {
                 const discordDetails = episodeInfo.episode
                     ? `${episodeInfo.animeName} - EP ${episodeInfo.episode}`
                     : episodeInfo.animeName;
 
-                await rpcClient.setActivity({
+                const activity = {
                     details: discordDetails,
                     state: '📺 Assistindo anime',
                     largeImageKey: animeData?.image || 'potplayer_icon',
                     largeImageText: episodeInfo.cleanTitle,
                     instance: false,
-                });
-                logger.debug('Discord RPC updated', { title: discordDetails });
+                };
+
+                // Add MAL button if we have the URL
+                if (animeData?.url) {
+                    activity.buttons = [
+                        { label: '📖 Ver no MyAnimeList', url: animeData.url }
+                    ];
+                }
+
+                await rpcClient.setActivity(activity);
             } catch (error) {
                 logger.error('Failed to set Discord activity', { error: error.message });
             }
         }
 
-        // Update Dashboard with episode info
+        // Update Dashboard with episode info + MAL URL
         if (dashboardWindow) {
             dashboardWindow.webContents.send('update-status', {
                 state: 'playing',
@@ -514,7 +519,8 @@ async function updateActivity() {
                 current: currentTime,
                 total: totalTime,
                 progress: progress,
-                image: animeData?.image || null
+                image: animeData?.image || null,
+                malUrl: animeData?.url || null  // Adicionar URL do MAL
             });
         }
     } else {
