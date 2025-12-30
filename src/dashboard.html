@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
@@ -14,7 +14,7 @@
         @keyframes fadeIn {
             from {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(10px);
             }
 
             to {
@@ -34,38 +34,75 @@
         }
 
         body {
-            background-color: #1a1b26;
+            /* Copied aesthetic from splash.html */
+            background: linear-gradient(135deg, #1a1b26 0%, #24283b 100%);
             color: #c0caf5;
-            font-family: 'Segoe UI', sans-serif;
-            padding: 20px;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            height: 100vh;
             overflow: hidden;
-            user-select: none;
-            animation: fadeIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+
+        /* Grade de fundo (Grid Overlay) */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                linear-gradient(90deg, rgba(122, 162, 247, 0.05) 1px, transparent 1px),
+                linear-gradient(0deg, rgba(122, 162, 247, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
+            /* Glassmorphism container */
+            background: rgba(26, 27, 38, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(122, 162, 247, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             gap: 15px;
-            animation: fadeIn 0.4s ease-out 0.1s backwards;
+            padding: 15px;
+            position: relative;
+            z-index: 1;
+
+            animation: fadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
         .cover-box {
-            width: 80px;
-            height: 110px;
-            background: linear-gradient(135deg, #24283b 0%, #1f2335 100%);
+            width: 70px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
             overflow: hidden;
             flex-shrink: 0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             position: relative;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .cover-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 15px rgba(122, 162, 247, 0.2);
+            border: 1px solid rgba(122, 162, 247, 0.3);
         }
 
         .cover-box.loading {
-            background: linear-gradient(90deg,
-                    #24283b 0%,
-                    #2a2e3f 50%,
-                    #24283b 100%);
+            background: linear-gradient(90deg, #24283b 0%, #2a2e3f 50%, #24283b 100%);
             background-size: 200% 100%;
             animation: shimmer 1.5s ease-in-out infinite;
         }
@@ -74,24 +111,12 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            display: none;
+            opacity: 0;
             transition: opacity 0.3s ease;
         }
 
         .cover-img.loaded {
-            display: block;
             opacity: 1;
-        }
-
-        .cover-placeholder {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #414868;
-            font-size: 32px;
-            font-weight: bold;
         }
 
         .info {
@@ -100,93 +125,114 @@
             flex-direction: column;
             justify-content: center;
             min-width: 0;
+            /* Important for truncation */
         }
 
-        .status {
-            font-size: 11px;
-            font-weight: bold;
+        .status-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
             color: #7aa2f7;
+            background: rgba(122, 162, 247, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 5px;
-            transition: color 0.3s ease;
+            margin-bottom: 6px;
+            align-self: flex-start;
         }
 
-        .status.idle {
+        .status-badge.idle {
             color: #565f89;
+            background: rgba(86, 95, 137, 0.1);
         }
 
         .title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             color: #fff;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-bottom: 8px;
-            transition: transform 0.2s ease;
-        }
-
-        .title:hover {
-            transform: translateX(2px);
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
         }
 
         .time {
-            font-family: 'Consolas', monospace;
-            font-size: 13px;
-            color: #565f89;
-            margin-bottom: 8px;
-            transition: color 0.3s ease;
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            /* Monospace for numbers */
+            font-size: 12px;
+            color: #a9b1d6;
+            margin-bottom: 10px;
         }
 
+        /* Progress Bar */
         .progress-bg {
-            height: 6px;
-            background-color: #2a2e3f;
-            border-radius: 3px;
+            height: 4px;
+            background: rgba(169, 177, 214, 0.1);
+            border-radius: 2px;
             overflow: hidden;
             width: 100%;
+            position: relative;
         }
 
         .progress-fill {
             height: 100%;
             width: 0%;
             background: linear-gradient(90deg, #7aa2f7, #bb9af7);
-            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            border-radius: 3px;
+            border-radius: 2px;
+            box-shadow: 0 0 10px rgba(122, 162, 247, 0.5);
+            transition: width 0.3s linear;
         }
 
         .close-btn {
             position: absolute;
             top: 10px;
             right: 10px;
-            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: #565f89;
-            font-size: 16px;
-            transition: all 0.2s ease;
-            padding: 4px 8px;
-            border-radius: 4px;
+            font-size: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
         .close-btn:hover {
+            background: rgba(247, 118, 142, 0.2);
             color: #f7768e;
-            background: rgba(247, 118, 142, 0.1);
-            transform: scale(1.1);
+        }
+
+        .drag-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 10px;
+            -webkit-app-region: drag;
         }
     </style>
 </head>
 
 <body>
-    <div class="close-btn" id="closeBtn">✕</div>
+    <div class="drag-handle"></div>
 
     <div class="container">
+        <!-- Close Button -->
+        <div class="close-btn" id="closeBtn">✕</div>
+
+        <!-- Cover Art -->
         <div class="cover-box" id="coverBox">
-            <img id="cover" class="cover-img">
-            <div id="placeholder" class="cover-placeholder">P</div>
+            <img id="cover" class="cover-img" alt="Cover">
         </div>
 
+        <!-- Info Section -->
         <div class="info">
-            <div id="status" class="status idle">CARREGANDO...</div>
-            <div id="title" class="title">Inicializando...</div>
+            <div id="status" class="status-badge idle">AGUARDANDO</div>
+            <div id="title" class="title">PotPlayer RPC</div>
             <div id="time" class="time">--:--:-- / --:--:--</div>
 
             <div class="progress-bg">
@@ -195,9 +241,8 @@
         </div>
     </div>
 
-    <script type="module">
-        const { appWindow } = window.__TAURI__.window;
-        const { listen } = window.__TAURI__.event;
+    <script>
+        const { ipcRenderer, shell } = require('electron');
 
         const elements = {
             status: document.getElementById('status'),
@@ -205,58 +250,69 @@
             time: document.getElementById('time'),
             progress: document.getElementById('progress'),
             cover: document.getElementById('cover'),
-            placeholder: document.getElementById('placeholder'),
-            coverBox: document.getElementById('coverBox')
+            coverBox: document.getElementById('coverBox'),
+            closeBtn: document.getElementById('closeBtn')
         };
 
-        // Close button
-        document.getElementById('closeBtn').addEventListener('click', () => {
-            appWindow.hide();
+        let currentMalUrl = null;
+
+        // Close logic
+        elements.closeBtn.addEventListener('click', () => {
+            // Option 1: Hide window
+            // ipcRenderer.send('hide-dashboard'); 
+            // Option 2: Close app not recommended here? Maybe just hide.
+            // Using a specific channel usually defined in main.js
+            // If not defined, we can try generic logic or window.close()
+            window.close();
         });
 
-        // Listen for video updates
-        await listen('video-update', (event) => {
-            const data = event.payload;
-            updateUI(data);
+        // Open MAL on click
+        elements.coverBox.addEventListener('click', () => {
+            if (currentMalUrl) shell.openExternal(currentMalUrl);
         });
 
-        await listen('video-clear', () => {
-            setIdle();
-        });
+        // Listen for updates
+        ipcRenderer.on('update-status', (event, data) => {
+            // Update Title
+            elements.title.textContent = data.title || 'PotPlayer RPC';
 
-        function updateUI(data) {
-            elements.status.textContent = 'REPRODUZINDO';
-            elements.status.classList.remove('idle');
-
-            elements.title.textContent = data.title || 'Sem título';
-            elements.time.textContent = `${data.current_time} / ${data.total_time}`;
-            elements.progress.style.width = `${data.progress}%`;
-
-            // Load cover if available (for future anime API integration)
-            if (data.cover_url) {
-                elements.coverBox.classList.add('loading');
-                elements.cover.src = data.cover_url;
-                elements.cover.onload = () => {
-                    elements.cover.classList.add('loaded');
-                    elements.placeholder.style.display = 'none';
-                    elements.coverBox.classList.remove('loading');
-                };
+            // Update Status Badge
+            const isPlaying = data.state === 'playing';
+            elements.status.textContent = isPlaying ? 'REPRODUZINDO' : 'OCIOSO';
+            if (isPlaying) {
+                elements.status.classList.remove('idle');
+            } else {
+                elements.status.classList.add('idle');
             }
-        }
 
-        function setIdle() {
-            elements.status.textContent = 'OCIOSO';
-            elements.status.classList.add('idle');
-            elements.title.textContent = 'PotPlayer Fechado';
-            elements.time.textContent = '--:--:-- / --:--:--';
-            elements.progress.style.width = '0%';
-            elements.cover.classList.remove('loaded');
-            elements.cover.src = '';
-            elements.placeholder.style.display = 'flex';
-        }
+            // Update Time
+            // data.current and data.total are expected to be strings "HH:MM:SS"
+            elements.time.textContent = `${data.current} / ${data.total}`;
 
-        // Initial state
-        setIdle();
+            // Update Progress Bar
+            elements.progress.style.width = `${data.progress || 0}%`;
+
+            // Update Image (only if changed/provided)
+            if (data.image) {
+                // If it's a URL or path
+                if (elements.cover.src !== data.image) {
+                    elements.coverBox.classList.add('loading');
+                    elements.cover.onload = () => {
+                        elements.cover.classList.add('loaded');
+                        elements.coverBox.classList.remove('loading');
+                    };
+                    elements.cover.src = data.image;
+                }
+            } else if (data.state === 'idle') {
+                elements.cover.src = '';
+                elements.cover.classList.remove('loaded');
+            }
+
+            // Update Link
+            currentMalUrl = data.malUrl;
+            elements.coverBox.style.cursor = currentMalUrl ? 'pointer' : 'default';
+        });
+
     </script>
 </body>
 

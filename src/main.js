@@ -15,8 +15,6 @@ const { getPotPlayerFile, getVideoDuration } = require('./utils/file-info');
 const execAsync = util.promisify(exec);
 const clientId = '1376009895677001798';
 const startupDir = path.resolve(process.env.APPDATA, 'Microsoft/Windows/Start Menu/Programs/Startup');
-// We will use the electron app itself for startup in the future, but for now let's reuse logic or use electron's setLoginItemSettings
-// actually, electron has apis for this.
 
 // --- GLOBAL STATE ---
 let tray = null;
@@ -34,7 +32,6 @@ if (!gotTheLock) {
     app.quit();
 } else {
     app.on('second-instance', () => {
-        // Someone tried to run a second instance, we should focus our window.
         if (dashboardWindow) {
             dashboardWindow.show();
             dashboardWindow.focus();
@@ -42,26 +39,17 @@ if (!gotTheLock) {
     });
 
     app.whenReady().then(() => {
-        // Hide dock icon on macOS/Linux (not relevant for Windows but good practice)
         if (process.platform === 'darwin') app.dock.hide();
 
-        // Show splash screen
         const splash = createSplashScreen();
-
-        // Setup IPC handlers
         setupIPC();
-
-        // Initialize components
         createTray();
         createDashboardWindow();
 
-        // Initialize Discord (async)
         initDiscord().then(() => {
-            // Start polling
             const pollInterval = config.get('pollInterval');
             checkInterval = setInterval(updateActivity, pollInterval);
 
-            // Hide splash after init (2s minimum)
             setTimeout(() => {
                 if (splash && !splash.isDestroyed()) {
                     splash.close();
@@ -94,7 +82,6 @@ function createSplashScreen() {
 
     splash.loadFile(path.join(__dirname, '../splash.html'));
     splash.center();
-
     return splash;
 }
 
@@ -103,15 +90,15 @@ function createDashboardWindow() {
     dashboardWindow = new BrowserWindow({
         width: 500,
         height: 220,
-        show: false, // Start hidden
-        frame: false, // Frameless
+        show: false,
+        frame: false,
         resizable: false,
         skipTaskbar: true,
         alwaysOnTop: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false // Changed to false for security, using preload
         },
         backgroundColor: '#1a1b26',
         icon: path.join(__dirname, '../tray.ico')
@@ -119,16 +106,12 @@ function createDashboardWindow() {
 
     dashboardWindow.loadFile(path.join(__dirname, 'dashboard/index.html'));
 
-    // Hide instead of close on "close"
     dashboardWindow.on('close', (event) => {
         if (!app.isQuiting) {
             event.preventDefault();
             dashboardWindow.hide();
         }
     });
-
-    // Handle losing focus (optional: auto-hide?)
-    // dashboardWindow.on('blur', () => dashboardWindow.hide());
 }
 
 // --- SYSTEM TRAY ---
@@ -146,7 +129,6 @@ function createTray() {
 }
 
 function updateTrayMenu() {
-    // Icons (using Emoji for now as reliable fallback, or could use nativeImage resize)
     const contextMenu = Menu.buildFromTemplate([
         { label: '  PotPlayer RPC', enabled: false },
         { label: isConnectedToDiscord ? '◉  Monitorando' : '⊗  Desconectado', enabled: false },
@@ -180,7 +162,6 @@ function updateTrayMenu() {
 
 function toggleDashboard() {
     if (dashboardWindow.isVisible()) {
-        // Fade out before hiding
         dashboardWindow.webContents.executeJavaScript(`
             document.body.style.transition = 'opacity 0.2s';
             document.body.style.opacity = '0';
@@ -188,12 +169,10 @@ function toggleDashboard() {
             setTimeout(() => dashboardWindow.hide(), 200);
         });
     } else {
-        // Center and show with fade-in
         dashboardWindow.center();
         dashboardWindow.show();
         dashboardWindow.focus();
 
-        // Fade in
         dashboardWindow.webContents.executeJavaScript(`
             document.body.style.opacity = '0';
             document.body.style.transition = 'opacity 0.3s ease-out';
@@ -212,7 +191,6 @@ function toggleStartup() {
         openAtLogin: !settings.openAtLogin,
         path: process.execPath
     });
-    // Wait a tick for settings to apply
     setTimeout(updateTrayMenu, 100);
 }
 
@@ -245,7 +223,6 @@ function openSettings() {
 }
 
 function setupIPC() {
-    // Get current settings
     ipcMain.handle('get-settings', () => {
         return {
             pollInterval: config.get('pollInterval'),
@@ -254,13 +231,11 @@ function setupIPC() {
         };
     });
 
-    // Save settings
     ipcMain.handle('save-settings', (event, settings) => {
         config.set('pollInterval', settings.pollInterval);
         config.set('theme', settings.theme);
         config.set('enableNotifications', settings.enableNotifications);
 
-        // Restart polling with new interval
         if (checkInterval) {
             clearInterval(checkInterval);
             checkInterval = setInterval(updateActivity, settings.pollInterval);
@@ -269,7 +244,6 @@ function setupIPC() {
         logger.info('Settings updated', settings);
     });
 
-    // Reset to defaults
     ipcMain.handle('reset-settings', () => {
         config.clear();
         return {
@@ -281,16 +255,13 @@ function setupIPC() {
 }
 
 function initAutoUpdater() {
-    // Configure updater
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
-    // Check for updates on startup (after 3 seconds delay)
     setTimeout(() => {
         autoUpdater.checkForUpdates();
     }, 3000);
 
-    // Update available
     autoUpdater.on('update-available', (info) => {
         logger.info('Update available', { version: info.version });
 
@@ -309,17 +280,14 @@ function initAutoUpdater() {
         });
     });
 
-    // Update not available
     autoUpdater.on('update-not-available', () => {
         logger.info('App is up to date');
     });
 
-    // Download progress
     autoUpdater.on('download-progress', (progress) => {
         logger.info('Download progress', { percent: progress.percent.toFixed(2) });
     });
 
-    // Update downloaded
     autoUpdater.on('update-downloaded', (info) => {
         logger.info('Update downloaded', { version: info.version });
 
@@ -338,7 +306,6 @@ function initAutoUpdater() {
         });
     });
 
-    // Error
     autoUpdater.on('error', (err) => {
         logger.error('Auto-updater error', { error: err.message });
     });
@@ -368,11 +335,10 @@ async function initDiscord() {
         logger.info('Discord RPC login successful');
     } catch (e) {
         logger.error('Discord RPC login failed', { error: e.message, stack: e.stack });
-        // Retry logic could go here
     }
 }
 
-// ... CleanTitle, FetchAnime, TimeToSeconds logic from previous index.js ...
+// ... CleanTitle, FetchAnime, TimeToSeconds logic ...
 function cleanTitle(rawTitle) {
     if (!rawTitle) return '';
     return rawTitle
@@ -422,19 +388,22 @@ async function getPotPlayerTitle() {
         const { stdout } = await execAsync('powershell "Get-Process PotPlayerMini64 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty MainWindowTitle"');
         return stdout.trim();
     } catch (e) {
-        // Process not found is expected when PotPlayer is closed
         logger.debug('PotPlayer process not found');
         return null;
     }
 }
 
+// --- UPDATED TIMER LOGIC ---
+let currentFileStartTime = 0; // Tracks start time
+
 async function updateActivity() {
     const rawTitle = await getPotPlayerTitle();
 
     if (!rawTitle || rawTitle === 'PotPlayer') {
-        // IDLE handling...
+        // IDLE handling
         if (lastFileFound !== 'IDLE') {
             lastFileFound = 'IDLE';
+            currentFileStartTime = 0; // RESET TIMER
             if (isConnectedToDiscord) rpcClient.clearActivity().catch(() => { });
             if (dashboardWindow) {
                 dashboardWindow.webContents.send('update-status', {
@@ -458,7 +427,6 @@ async function updateActivity() {
     let totalTimeStr = '??:??:??';
 
     if (episodeInfo) {
-        // Try to get duration from file
         const filePath = await getPotPlayerFile();
         if (filePath) {
             const duration = await getVideoDuration(filePath);
@@ -469,9 +437,13 @@ async function updateActivity() {
         }
     }
 
-    // Only update if file changed OR if we just got duration
+    const now = Date.now();
+    let currentSecs = 0;
+
+    // Detect file change
     if (lastFileFound !== episodeInfo.animeName) {
         lastFileFound = episodeInfo.animeName;
+        currentFileStartTime = now; // START TIMER for new episode
 
         logger.info('Now playing', {
             anime: episodeInfo.animeName,
@@ -481,45 +453,62 @@ async function updateActivity() {
 
         const animeData = await fetchAnimeData(episodeInfo.animeName);
 
+        const discordDetails = episodeInfo.episode
+            ? `${episodeInfo.animeName} - EP ${episodeInfo.episode}`
+            : episodeInfo.animeName;
+
+        // Discord Activity
+        const activity = {
+            details: discordDetails,
+            state: totalSecs > 0 ? `Duração: ${totalTimeStr}` : '📺 Assistindo anime',
+            largeImageKey: animeData?.image || 'potplayer_icon',
+            largeImageText: episodeInfo.cleanTitle,
+            instance: false,
+            startTimestamp: currentFileStartTime // Discord shows "Elapsed" automatically
+        };
+
+        if (animeData?.url) {
+            activity.buttons = [{ label: '📖 Ver no MyAnimeList', url: animeData.url }];
+        }
+
         if (isConnectedToDiscord) {
             try {
-                const discordDetails = episodeInfo.episode
-                    ? `${episodeInfo.animeName} - EP ${episodeInfo.episode}`
-                    : episodeInfo.animeName;
-
-                const stateText = totalSecs > 0 ? `Duração: ${totalTimeStr}` : '📺 Assistindo anime';
-
-                const activity = {
-                    details: discordDetails,
-                    state: stateText,
-                    largeImageKey: animeData?.image || 'potplayer_icon',
-                    largeImageText: episodeInfo.cleanTitle,
-                    instance: false,
-                };
-
-                if (animeData?.url) {
-                    activity.buttons = [{ label: '📖 Ver no MyAnimeList', url: animeData.url }];
-                }
-
-                // Show "XX min left" if we have duration (Discord subtracts startTimestamp from now)
-                // Since we don't know start time, we can't do accurate progress bar.
-                // But we CAN display total duration in state.
-
                 await rpcClient.setActivity(activity);
             } catch (error) {
                 logger.error('RPC Error', { error: error.message });
             }
         }
 
+        // Initial Dashboard Update
         if (dashboardWindow) {
             dashboardWindow.webContents.send('update-status', {
                 state: 'playing',
                 title: episodeInfo.cleanTitle,
-                current: '00:00:00', // Unknown current position
+                current: '00:00:00',
                 total: totalTimeStr,
-                progress: 0, // Unknown progress
+                progress: 0,
                 image: animeData?.image || null,
                 malUrl: animeData?.url || null
+            });
+        }
+    } else {
+        // CONTINUOUS UPDATE (Same File)
+        if (currentFileStartTime > 0) {
+            // Calculate elapsed time from start
+            currentSecs = Math.floor((now - currentFileStartTime) / 1000);
+            if (totalSecs > 0 && currentSecs > totalSecs) currentSecs = totalSecs; // Cap at max
+        }
+
+        const currentTimeStr = secondsToTime(currentSecs);
+        const progress = totalSecs > 0 ? (currentSecs / totalSecs) * 100 : 0;
+
+        if (dashboardWindow) {
+            dashboardWindow.webContents.send('update-status', {
+                state: 'playing',
+                title: episodeInfo.cleanTitle,
+                current: currentTimeStr,
+                total: totalTimeStr,
+                progress: progress
             });
         }
     }
