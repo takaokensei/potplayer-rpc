@@ -42,7 +42,7 @@ async function getPotPlayerFile() {
 
         // Decode Base64
         const commandLine = Buffer.from(base64Output, 'base64').toString('utf8');
-        logger.info('Decoded CommandLine:', { commandLine });
+        logger.debug('Decoded CommandLine:', { commandLine });
 
         // Extract paths quoted in ""
         const matches = commandLine.match(/"([^"]+)"/g);
@@ -55,7 +55,7 @@ async function getPotPlayerFile() {
                 const ext = path.extname(rawPath).toLowerCase();
 
                 if (videoExtensions.includes(ext)) {
-                    logger.info('Found video file:', { rawPath });
+                    logger.debug('Found video file:', { rawPath });
                     return rawPath;
                 }
             }
